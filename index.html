@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>雷霆小空战 · THUNDER SKIES</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath fill='%23f2c86b' d='M32 5 38 27 61 32 38 37 32 59 26 37 3 32 26 27z'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <canvas id="scene"></canvas>
+    <canvas id="hudFx"></canvas>
+
+    <div id="hud" class="hidden">
+      <div class="hud-vignette"></div>
+      <div class="hud-top">
+        <div class="team-score">
+          <span class="team blue">蓝队 <b id="blueAlive">8</b></span>
+          <span class="objective" id="objective">歼灭敌方机群</span>
+          <span class="team red">红队 <b id="redAlive">8</b></span>
+        </div>
+        <div class="clock" id="matchClock">10:00</div>
+        <div class="compass-row">
+          <span class="compass-tick" id="compassLeft">W</span>
+          <span class="compass-center"><i id="headingNeedle"></i><b id="headingText">000</b></span>
+          <span class="compass-tick" id="compassRight">E</span>
+          <span class="wind">ALT <b id="topAlt">0</b> m</span>
+        </div>
+      </div>
+
+      <div class="panel flight-panel">
+        <div class="panel-kicker">FLIGHT DATA</div>
+        <div class="big-readout"><span id="speedValue">0</span><small>KM/H</small></div>
+        <div class="mini-grid">
+          <div><span>高度</span><b id="altValue">0 m</b></div>
+          <div><span>升降率</span><b id="vsValue">0 m/s</b></div>
+        </div>
+        <div class="gauge-line">
+          <div class="gauge-label"><span>油门 THR</span><b id="throttleValue">80%</b></div>
+          <div class="gauge"><i id="throttleFill"></i><em id="boostMarker"></em></div>
+        </div>
+        <div class="gauge-line">
+          <div class="gauge-label"><span>发动机出力</span><b id="engineValue">0%</b></div>
+          <div class="gauge green"><i id="engineFill"></i></div>
+        </div>
+        <div class="gauge-line">
+          <div class="gauge-label"><span id="boostLabel">加力余量</span><b id="boostValue">--</b></div>
+          <div class="gauge orange"><i id="boostFill"></i></div>
+        </div>
+        <div class="engine-foot"><span id="engineTemp">油温 42°C</span><span id="boostStatus">MIL</span></div>
+      </div>
+
+      <div class="panel damage-panel">
+        <div class="panel-kicker">AIRFRAME</div>
+        <div class="airframe">
+          <div class="module-bar wing-left"><span>左翼</span><i><b id="hpLeftWing"></b></i></div>
+          <div class="module-bar fuse"><span>机身</span><i><b id="hpFuselage"></b></i></div>
+          <div class="module-bar wing-right"><span>右翼</span><i><b id="hpRightWing"></b></i></div>
+          <div class="module-bar tail"><span>尾翼</span><i><b id="hpTail"></b></i></div>
+          <div class="module-bar engine"><span>发动机</span><i><b id="hpEngine"></b></i></div>
+        </div>
+        <div class="countermeasures" id="cmPanel">
+          <div><span>热诱弹</span><b id="flareCount">30</b></div>
+          <div><span>箔条</span><b id="chaffCount">30</b></div>
+        </div>
+      </div>
+
+      <div class="panel target-panel">
+        <div class="panel-kicker">TARGET</div>
+        <div class="target-title"><b id="targetName">无锁定</b><span id="targetType">SEARCH</span></div>
+        <div class="target-grid">
+          <div><span>距离</span><b id="targetRange">---</b></div>
+          <div><span>接近率</span><b id="targetClosure">---</b></div>
+          <div><span>高度差</span><b id="targetAltDiff">---</b></div>
+          <div><span>雷达</span><b id="targetRadar">NO LOCK</b></div>
+          <div><span>红外导引头</span><b id="targetIr">NO SEEKER</b></div>
+        </div>
+        <div id="targetModules" class="target-modules"></div>
+      </div>
+
+      <div class="panel rwr-panel">
+        <div class="panel-kicker">RWR</div>
+        <canvas id="rwrCanvas" width="150" height="150"></canvas>
+        <div class="rwr-status" id="rwrStatus">无告警</div>
+      </div>
+
+      <div class="panel radar-panel">
+        <div class="panel-head"><span class="panel-kicker" id="radarTitle">TACTICAL MAP</span><span id="radarRange">12 KM</span></div>
+        <canvas id="radarCanvas" width="230" height="230"></canvas>
+        <div class="radar-foot"><span id="radarMode">VISUAL</span><span id="radarLock">NO LOCK</span></div>
+      </div>
+
+      <div class="panel weapons-panel">
+        <div class="weapon-row">
+          <div class="weapon gun">
+            <span class="weapon-icon">✦</span>
+            <div><small>机炮</small><b id="gunName">12.7MM</b></div>
+            <strong id="gunAmmo">1200</strong>
+          </div>
+          <div class="weapon missile" id="irWeapon">
+            <span class="weapon-icon">◇</span>
+            <div><small>红外弹 [1]</small><b id="irName">AIM-9E</b></div>
+            <strong id="irAmmo">4</strong>
+          </div>
+          <div class="weapon missile" id="sarhWeapon">
+            <span class="weapon-icon">◆</span>
+            <div><small>雷达弹 [2]</small><b id="sarhName">AIM-7E</b></div>
+            <strong id="sarhAmmo">2</strong>
+          </div>
+        </div>
+        <div class="missile-state"><span id="missilePhase"></span><span id="weaponHint">鼠标左键机炮 · 空格 导弹 · 右键切换放大</span></div>
+      </div>
+
+      <div class="killfeed" id="killfeed"></div>
+      <div class="toast" id="toast"></div>
+      <div class="global-warning hidden" id="warning"></div>
+      <div class="spectate-banner hidden" id="spectateBanner">
+        <small>你已被击落</small>
+        <b>观战中 · V 切换队友 · X 加速</b>
+      </div>
+      <div class="scoreboard hidden" id="scoreboard">
+        <div class="scoreboard-head"><span>战况</span><span id="scoreboardTime">10:00</span></div>
+        <div class="scoreboard-cols"><span>蓝队</span><span>击落</span><span></span><span>红队</span><span>击落</span></div>
+        <div class="scoreboard-body" id="scoreboardBody"></div>
+      </div>
+      <div class="hints" id="hints">
+        <span>鼠标瞄准</span><span id="hintFreeLook">按住 C 环绕</span><span id="hintGun">左键机炮</span><span id="hintMissile">空格 导弹</span><span id="hintZoom">右键切换 5×</span><span id="hintTarget">T 锁定</span>
+      </div>
+    </div>
+
+    <section id="menu" class="overlay menu-screen active">
+      <div class="menu-gridlines"></div>
+      <header class="menu-header">
+        <div class="brand-mark">✦</div>
+        <div>
+          <div class="eyebrow">HISTORICAL AIR BATTLE / 8V8 · 12V12</div>
+          <h1>雷霆小空战 <span>THUNDER SKIES</span></h1>
+        </div>
+        <div class="menu-actions">
+          <button class="ghost-btn" id="openSettingsBtn">键位设置</button>
+          <button class="ghost-btn" id="openHelpBtn">作战手册</button>
+        </div>
+      </header>
+
+      <div class="hangar-layout">
+        <aside class="hangar-left">
+          <div class="section-label">SELECT AIRFRAME / 选择战机</div>
+          <div class="aircraft-list" id="aircraftList">
+            <button class="aircraft-card selected" data-aircraft="p51">
+              <span class="card-tier">II</span>
+              <span class="card-copy"><b>P-51D-20</b><small>野马 · 螺旋桨战斗机</small></span>
+              <span class="card-role">TURN</span>
+            </button>
+            <button class="aircraft-card" data-aircraft="mig15">
+              <span class="card-tier">IV</span>
+              <span class="card-copy"><b>MiG-15bis</b><small>柴捆 · 早期喷气式</small></span>
+              <span class="card-role">ENERGY</span>
+            </button>
+            <button class="aircraft-card" data-aircraft="f4e">
+              <span class="card-tier">VI</span>
+              <span class="card-copy"><b>F-4E</b><small>鬼怪 II · 晚期喷气式</small></span>
+              <span class="card-role">BVR</span>
+            </button>
+          </div>
+          <div class="controls-brief">
+            <div class="section-label">QUICK CONTROLS / 快速操作</div>
+            <p id="menuControls">鼠标瞄准 · W/S 俯仰 · A/D 滚转 · Q/E 偏航</p>
+            <p id="menuControls2">Shift / Ctrl 油门 · C 按住环视 · 左键机炮 · 空格 导弹 · 右键切换 5×</p>
+          </div>
+        </aside>
+
+        <div class="hangar-center">
+          <div class="showcase-caption">
+            <span id="showcaseClass">PROPELLER FIGHTER</span>
+            <strong id="showcaseName">P-51D-20 MUSTANG</strong>
+          </div>
+          <div class="showcase-ring"></div>
+        </div>
+
+        <aside class="hangar-right">
+          <div class="loadout-title"><span id="selectedName">P-51D-20 野马</span><b id="selectedTier">II</b></div>
+          <p class="aircraft-desc" id="selectedDesc">均衡的活塞战斗机，盘旋能力出色。</p>
+          <div class="stat-bars" id="statBars"></div>
+          <div class="loadout-block">
+            <div class="section-label">ARMAMENT / 武装</div>
+            <div id="armamentList" class="armament-list"></div>
+          </div>
+          <div class="loadout-block" id="cmLoadoutBlock">
+            <div class="section-label">COUNTERMEASURES / 干扰弹配置 <b id="cmTotal">60 枚</b></div>
+            <div class="cm-slider-row">
+              <span>热诱 <b id="cmFlareValue">30</b></span>
+              <input type="range" id="cmSlider" min="0" max="60" step="2" value="30" aria-label="热诱弹数量">
+              <span>箔条 <b id="cmChaffValue">30</b></span>
+            </div>
+            <p class="fine-print">总量固定 60 枚，AI 对半携带。训练弹只影响对局内携带量。</p>
+          </div>
+          <div class="sortie-block">
+            <div class="section-label">BATTLE SIZE / 对战规模</div>
+            <div class="size-toggle">
+              <button class="size-btn active" data-size="8">8 V 8</button>
+              <button class="size-btn" data-size="12">12 V 12</button>
+            </div>
+            <button class="sortie-btn" id="sortieBtn"><span>出击</span><small>LAUNCH MISSION</small></button>
+            <p class="fine-print">历史模式 · 单命 · 团队全灭或 10 分钟计时结束。点击出击后捕获鼠标。</p>
+          </div>
+        </aside>
+      </div>
+      <footer class="menu-footer">
+        <span>本作为非官方粉丝作品 · 数值与飞行模型经过街机化调整</span>
+        <span id="menuVersion">BUILD 1.0 / OFFLINE</span>
+      </footer>
+    </section>
+
+    <section id="settings" class="overlay settings-screen">
+      <div class="modal wide-modal">
+        <header class="modal-head">
+          <div><small>SYSTEM CONFIG</small><h2>键位设置</h2></div>
+          <button class="icon-btn" id="closeSettingsBtn" aria-label="关闭">×</button>
+        </header>
+        <p class="modal-intro">点击任意动作，然后按下新的键盘按键或鼠标按钮。Esc 取消捕获。Esc 是固定的界面保险键，不会参与重绑定。</p>
+        <div class="bindings-grid" id="bindingsGrid"></div>
+        <footer class="modal-foot">
+          <span class="settings-note" id="settingsNote">浏览器可能保留 Ctrl+W 等组合快捷键，如有冲突请在下方重新绑定。</span>
+          <div>
+            <button class="ghost-btn" id="resetBindingsBtn">恢复默认</button>
+            <button class="primary-btn" id="saveSettingsBtn">完成</button>
+          </div>
+        </footer>
+      </div>
+    </section>
+
+    <section id="help" class="overlay help-screen">
+      <div class="modal">
+        <header class="modal-head">
+          <div><small>PILOT MANUAL</small><h2>作战手册</h2></div>
+          <button class="icon-btn" id="closeHelpBtn" aria-label="关闭">×</button>
+        </header>
+        <div class="help-copy">
+          <h3>飞行</h3>
+          <p>鼠标定义的是世界空间中的瞄准方向，而不是持续偏移的操纵杆：飞机自动协调滚转并转弯，直到机头指向该方向，琥珀色瞄准环会随相机移动自动回到屏幕中心；鼠标停住后不会继续绕圈。W/S、Q/E 可修正瞄准方向，A/D 手动滚转。Shift/Ctrl 控制 0–110% 的线性油门轴：轻点改变 4%，按住以恒定 32%/秒变化；100% 以上进入加力。加力有连续使用时限，超时会过热并损坏发动机。按住 C 时相机会围绕飞机旋转，便于从任意角度观察机体，松开后回到追尾视角。点击鼠标右键切换约 5 倍放大，再次点击恢复。追尾相机保持水平稳定，不会随机体滚转。</p>
+          <h3>历史模式</h3>
+          <p>团队单命作战。击落所有敌机，或在 10 分钟结束时保持人数优势。被击落后可以继续观战，按 V 切换队友，X 加速观战。</p>
+          <h3>F-4E 系统</h3>
+          <p>按 T 切换/锁定雷达目标，按空格键发射当前选中的导弹。红外弹不需要雷达，但受目标姿态、热信号和热诱弹影响；雷达弹需要持续雷达照射，箔条、地形杂波和脱锁都会让导弹失去制导。雷达 38 km 搜索，但不会下视穿透地面杂波。RWR 只对雷达锁定和雷达弹发射告警，不会提示红外弹。</p>
+          <h3>干扰弹</h3>
+          <p>F-4E 总共 60 枚，可在机库自由分配热诱弹与箔条。按 F 投放热诱，按 G 投放箔条。AI 使用一半一半。热诱弹只影响红外弹，箔条只影响雷达。</p>
+          <h3>损伤</h3>
+          <p>机身、左翼、右翼、尾翼分别承受伤害；翼面或尾翼被摧毁会失控坠毁。发动机中弹或过热会降低出力，严重时停车。</p>
+        </div>
+        <footer class="modal-foot"><span>键位可在「键位设置」中更改。</span><button class="primary-btn" id="helpDoneBtn">明白</button></footer>
+      </div>
+    </section>
+
+    <section id="pause" class="overlay pause-screen">
+      <div class="pause-box">
+        <div class="eyebrow">TACTICAL PAUSE</div>
+        <h2>战斗暂停</h2>
+        <p id="pauseStatus">雷达与发动机已冻结。</p>
+        <div class="pause-buttons">
+          <button class="primary-btn" id="resumeBtn">继续战斗</button>
+          <button class="ghost-btn" id="pauseSettingsBtn">键位设置</button>
+          <button class="ghost-btn" id="restartBtn">重新开始</button>
+          <button class="ghost-btn danger" id="quitBtn">返回机库</button>
+        </div>
+        <div class="pause-controls" id="pauseControls"></div>
+      </div>
+    </section>
+
+    <section id="result" class="overlay result-screen">
+      <div class="result-box">
+        <div class="eyebrow" id="resultEyebrow">MISSION COMPLETE</div>
+        <h2 id="resultTitle">蓝队胜利</h2>
+        <p id="resultSubtitle">你活着看到了这一刻。</p>
+        <div class="result-stats">
+          <div><small>击落</small><b id="resultKills">0</b></div>
+          <div><small>得分</small><b id="resultScore">0</b></div>
+          <div><small>战斗时间</small><b id="resultTime">00:00</b></div>
+          <div><small>状态</small><b id="resultStatus">幸存</b></div>
+        </div>
+        <div class="result-actions">
+          <button class="primary-btn" id="resultAgainBtn">再战一场</button>
+          <button class="ghost-btn" id="resultHangarBtn">返回机库</button>
+        </div>
+      </div>
+    </section>
+
+    <div id="countdown" class="countdown hidden">
+      <small>ENGAGE</small><b>3</b>
+    </div>
+
+    <div id="errorScreen" class="overlay error-screen hidden">
+      <div class="error-box">
+        <h2>无法启动飞行模拟</h2>
+        <p id="errorText">此浏览器不支持 WebGL 或 Three.js 加载失败。</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="vendor/three.min.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/settings.js"></script>
+  <script src="js/input.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/models.js"></script>
+  <script src="js/world.js"></script>
+  <script src="js/effects.js"></script>
+  <script src="js/flight.js"></script>
+  <script src="js/damage.js"></script>
+  <script src="js/radar.js"></script>
+  <script src="js/missiles.js"></script>
+  <script src="js/combat.js"></script>
+  <script src="js/ai.js"></script>
+  <script src="js/hud.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>
